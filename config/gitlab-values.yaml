@@ -1,0 +1,52 @@
+global:
+  edition: ce
+  hosts:
+    domain: it.ouxxa.com
+    externalIP: 10.0.5.10
+  ingress:
+    configureCertmanager: false
+    annotations:
+      "cert-manager.io/issuer": letsencrypt
+  appConfig:
+    initialDefaults:
+      signupEnabled: false
+  registry: {}
+  pages: {}
+  extraEnvFrom: {}
+
+nginx-ingress:
+  controller:
+    service:
+      annotations:
+        lb.kubesphere.io/v1alpha1: openelb
+        protocol.openelb.kubesphere.io/v1alpha1: layer2
+        eip.openelb.kubesphere.io/v1alpha2: ouxxa-dev-eip
+      loadBalancerIP: "10.0.5.10"
+
+gitlab:
+  kas:
+    ingress:
+      tls:
+        secretName: kas-tls
+  webservice:
+    ingress:
+      tls:
+        secretName: gitlab-tls
+
+registry:
+  ingress:
+    tls:
+      secretName: registry-tls
+
+minio:
+  ingress:
+    tls:
+      secretName: minio-tls
+
+gitlab-runner:
+  install: false
+
+certmanager:
+  install: false
+
+

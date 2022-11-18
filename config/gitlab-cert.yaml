@@ -1,0 +1,37 @@
+
+---
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: aliyun-secret
+  namespace: gitlab-system
+spec:
+  encryptedData:
+    access-key: AgDDce1A7XPoZzp3W5O6ZLLWrq9My0Ptmb4kMzKBT2GFFr4+V6ZKEESfglRzHRhA4zuZyKPXahRDrpUjthUcf6qQb17kLB7XEwCAEg++liTwff3nfYWjym9zJ+3n6MVRXs+babPZY52Aut+QVYgBNu0fBlpngyMhSVQ2MphPBBPvaG0pUcjp6tjKEoJl392akEsDno4xko2FkYJI5Obwbzpo01cQg4CNw6yO0a2CAQtVJyLPTeSQOuDm2y76IAyP/VowjyeFC+pFK2b/4i7jofXhiAsnjXft8zvR6wA/0t5gq1hXnmHsWbI2K95zGcFI4MO4BcUrToCtVXNFThsMraWxxuIr/DR9IYsMQFQYE3K6FxRafOd0mz0jcA8VNe0dfaXS+WkUVxli+nun0A8LFw+x0bzlu9zQOQFJlJ3W27lY+2YZFRYfSXRog2qlx4idd6uPjwVu8b1TT0fTmfgyNmcCtJDXjlQMSnP/m/LMOi3iEoSJvgrJPsU1vs6h2oKQ7b3HOPu1QqbVwlg/vkLSem79sK4DtajY9G/M4x5Vfbm5grers8niViDM2V4ElgdTgvT5T6NXA509ttdZeiOzfiosTPu6slgRgDCeC4QBWWcMlD+cfAd6HyCwtOI+R3P/c8G/3EnQg1LbIxCKeHU7j0zx3QDNDDF1FI1EnFafNgSsFvQcVgNgPPs7dI3UuSXpL1ENdNMieH4CpXlvLebbw8JMQKuioPHl0sM=
+    secret-key: AgAYJeQBoz052gOjDctfckhq9Qo240h8aAWLtWQ3skDd+lq4oNR2WKe2U6PzsqHglpr8+y5svHxAf9HB/lkSSoe0DFPVsuTmTWkmNShea5mLiVB/Oc7ykC9p4Kf0mln9gWKxYyGBsJfDtwbj28Xj6SFVjkAF5qgStJJlDTuxsZkxnavg1d5F9ygxiZNGiMpKey/KjQgeDMjfsoePZ7LQ0XpipAaP4qU29ycLEnoLdnZBBu7j6ZYy359A+H/BWnY/AySTnXR9/eIxyBryBcgnvYEH5Uqfd/UjtfVymmAk5S98Vy+4J4AP6H0mxgs+cwrH+CQRc0aCXTX5tcBCNK3woG6AI4Hl9PDtAJasgcRc2Yt4Wf9JfYVtB70zxrcr375gfuoAburHR98OSHtswmByv/w4AqOdLomacdOfbBeOO7Ww0VRJ7ZobBHnXk4UfjBnO3edF/OkS3bacyHYzxfYcpT/44+2Inhazdc3aXTdkDffaCNWPbgMqAHCGfooUOH0gJ++A3IzxqI7Nc6+pM9R2wLvEQf1NM/qSLaxghGRANV4DFyukJzg2i/z/NVm/JSEKeYf6KZXA8tRGh46RbHVMeNh9K571aFz5UtmzfD6JcnMWVJ0KSYfsaMPO4m6UZS2vajTSFCyBBd84KdKEA41xhoxfl6+Sl+V4+Ycn/3kxv93zt0n916tQ1M52c9LYFFdnwTv2AseCczuRX/NwdOKB2FjqDa7SjyBoRRmmYlxb2+Y=
+
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  namespace: gitlab-system
+  name: letsencrypt
+spec:
+  acme:
+    email: developer@ouxxa.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-account-key
+    solvers:
+    - dns01:
+        webhook:
+          groupName: acme.micrc.io
+          solverName: alidns-solver
+          config:
+            accessTokenSecretRef:
+              name: aliyun-secret
+              key: access-key
+            secretKeySecretRef:
+              name: aliyun-secret
+              key: secret-key
+
