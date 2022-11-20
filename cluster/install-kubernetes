@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# 设置环境变量
+VERSION=v1.22.10
+# 组织域名称
+ORG_DOMAIN=ouxxa
+# EIP分配范围，不要与内网 dhcp重叠
+EIP_ADDRESS_RANGE=10.0.5.1-10.0.5.100
+# 路由地址
+ROUTER_ADDRESS=10.0.0.1
+
+
+echo "=============================开始安装kubernetes================================"
+./kk create cluster --with-kubernetes $VERSION -f ./config/kubernetes-config.yaml -y
+echo "==================================Done.======================================="
+
+
+echo "=============修改kube-proxy配置mode: "ipvs"和strictARP: true============="
+kubectl get configmap kube-proxy -n kube-system -o yaml | \
+        sed -e 's/mode: ""/mode: "ipvs"/' | \
+        sed -e "s/strictARP: false/strictARP: true/" | \
+        kubectl diff -f - -n kube-system
+kubectl get configmap kube-proxy -n kube-system -o yaml | \
+	sed -e 's/mode: ""/mode: "ipvs"/' | \
+	sed -e "s/strictARP: false/strictARP: true/" | \
+	kubectl apply -f - -n kube-system
+kubectl get pod -n kube-system | grep kube-proxy | awk '{system("kubectl delete pod "$1" -n kube-system")}'
+sleep 20  # todo 修复，查看kube-proxy状态决定是否运行或等待
+kubectl get pod -n kube-system | grep kube-proxy | awk '{system("kubectl logs "$1" -n kube-system")}' | egrep "ipvs"
+echo "=========================Done.============================="
+
+
+echo "===========================安装longhron cas存储======================"
+# note: 云环境使用供应商提供的存储方案，存储类不适合自行处理;
+# 开发集成集群使用cas存储方案，外加nfs二级备份存储
+# 安装longhorn
+kubectl create ns longhorn-system
+helm upgrade --install longhorn ./config/longhorn --namespace longhorn-system \
+  --values ./config/longhorn-values.yaml
+# 配置longhorn console eip
+kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
+  -p="[{\"op\": \"add\", \"path\": \"/metadata/annotations\", \"value\": {\"lb.kubesphere.io/v1alpha1\": \"openelb\", \"protocol.openelb.kubesphere.io/v1alpha1\": \"layer2\", \"eip.openelb.kubesphere.io/v1alpha2\": \"$ORG_DOMAIN-dev-eip\"}}]"
+kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
+  -p='[{"op": "add", "path": "/spec/loadBalancerIP", "value": "10.0.5.100"}]'
+kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
+  -p='[{"op": "replace", "path": "/spec/type", "value": "LoadBalancer"}]'
+echo "===============================Done.================================"
+
+
+echo "=====================创建openelb负载均衡器ip pool====================="
+kubectl label --overwrite nodes master1 master2 master3 lb.kubesphere.io/v1alpha1=openelb
+helm repo add stable https://charts.kubesphere.io/stable
+helm repo update
+helm upgrade --install -f ./config/openelb-values.yaml -n kube-system openelb stable/openelb
+
+kubectl scale deployment openelb-manager --replicas=3 -n kube-system
+echo "等待openelb-manager启动..."
+sleep 150  # todo 修复，查看openelb-manager状态以决定是否继续运行或等待
+
+cat <<EOF | kubectl create -f -
+---
+apiVersion: network.kubesphere.io/v1alpha2
+kind: Eip
+metadata:
+  name: $ORG_DOMAIN-dev-eip
+spec:
+  address: $EIP_ADDRESS_RANGE
+  interface: can_reach:$ROUTER_ADDRESS
+  protocol: layer2
+  disable: false
+EOF
+
+echo "==============================Done.=================================="
+
+

@@ -6,7 +6,6 @@ echo "## Start -- 开始最小化安装KubeSphere"
 echo "#######################################"
 
 
-
 function wait() {
 	sleep 60
 	CNT=0
@@ -17,6 +16,11 @@ function wait() {
 	done
 	kubectl -n kubesphere-system get pod -o name | grep ks-installer | xargs kubectl -n kubesphere-system logs --tail=50
 }
+
+
+GITLAB_VERSION=6.5.5
+CERTMANAGER_VERSION=v1.10.0
+ORG_DOMAIN_NAME=ouxxa.com
 
 
 echo "=============配置ectd监控============"
@@ -40,6 +44,8 @@ kubectl apply -f ./config/kubesphere-config.yaml
 
 echo "等待kubesphere安装..."
 wait
+
+# 配置ks console eip
 echo "====================Done.======================="
 
 echo "=================配置kubesphere-basic-namespace================="
@@ -52,6 +58,8 @@ kubectl label namespace default istio-injection=disabled
 kubectl label namespace default kubesphere.io/workspace=system-workspace
 kubectl label namespace kube-node-lease istio-injection=disabled
 kubectl label namespace kube-node-lease kubesphere.io/workspace=system-workspace
+kubectl label namespace longhorn-system istio-injection=disabled
+kubectl label namespace longhorn-system kubesphere.io/workspace=system-workspace
 
 # 为namespace添加label: istio-injection=disabled不允许sidecar注入
 kubectl label namespace kubekey-system kubesphere.io/workspace=system-workspace
@@ -73,7 +81,12 @@ wait
 kubectl create namespace gitlab-system
 helm repo add gitlab https://charts.gitlab.io
 helm repo update
-helm install gitlab gitlab/gitlab --namespace gitlab-system --create-namespace --version 6.5.5 -f ./config/gitlab-values.yaml
+
+kubectl apply -f ./config/devops/gitlab-cert.yaml
+
+helm upgrade --install gitlab gitlab/gitlab --namespace gitlab-system \
+	--version $GITLAB_VERSION \
+	-f ./config/devops/gitlab-values.yaml
 echo "============================Done.============================"
 
 echo "=================配置kubesphere-devops-namespace================="
@@ -105,11 +118,19 @@ echo "=============================Done.================================"
 
 
 echo "============================创建cert-manager========================="
+kubectl create namespace cert-manager
 helm repo add jetstack https://charts.jetstack.io
 helm repo update
-helm install cert-manager jetstack/cert-manager --namespace cert-manager --create-namespace --version v1.10.0 --set installCRDs=true --set 'extraArgs={--dns01-recursive-nameservers-only,--dns01-recursive-nameservers=223.5.5.5:53\,1.1.1.1:53}'
 
-helm install alidns-webhook ./config/alidns-webhook --namespace cert-manager --set groupName=acme.micrc.io
+helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager \
+	--version $CERTMANAGER_VERSION \
+	--set image.repository=jetstack/cert-manager-controller
+	--set installCRDs=true \
+	--set 'extraArgs={--dns01-recursive-nameservers-only,--dns01-recursive-nameservers=223.5.5.5:53\,1.1.1.1:53}'
+
+helm upgrade --install alidns-webhook ./config/cert/alidns-webhook --namespace cert-manager \
+  --set image.repository=devmachine-fr/cert-manager-alidns-webhook/cert-manager-alidns-webhook
+	--set groupName=acme.$ORG_DOMAIN_NAME \
 
 echo "等待cert-manager启动..."
 sleep 120 # todo 修复，查看cert-manager状态以决定是否继续运行或等待

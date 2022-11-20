@@ -1,7 +1,7 @@
 apiVersion: kubekey.kubesphere.io/v1alpha2
 kind: Cluster
 metadata:
-  name: xian-dev
+  name: ouxxa-integration
 spec:
   hosts:
   - {name: master1, address: 10.0.0.11, internalAddress: 10.0.0.11, user: root, password: wsx1qaz@WSX}
@@ -34,15 +34,15 @@ spec:
   controlPlaneEndpoint:
     ##Internal loadbalancer for apiservers 
     internalLoadbalancer: haproxy
-    domain: lb.xian-dev.dev
+    domain: lb.integration.ouxxa.com
     address: ""
     port: 6443
   kubernetes:
     version: v1.22.10
-    clusterName: xian-dev.dev
+    clusterName: integration.ouxxa.com
     imageRepo: kubesphere
     masqueradeAll: false
-    maxPods: 110
+    maxPods: 128
     nodeCidrMaskSize: 24
     proxyMode: ipvs
     autoRenewCerts: true
@@ -51,10 +51,9 @@ spec:
     type: kubekey
   network:
     plugin: flannel
-    kubePodsCIDR: 100.233.64.0/18
-    kubeServiceCIDR: 100.233.0.0/18
+    kubePodsCIDR: 172.16.0.0/12
+    kubeServiceCIDR: 192.168.0.0/16
   registry:
-    registryMirrors: ["http://10.0.1.100:5748"]
-    insecureRegistries: ["10.0.1.100:5748"]
+    registryMirrors: ["https://repo.it.ouxxa.com"]
     privateRegistry: ""
   addons: []

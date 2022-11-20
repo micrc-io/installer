@@ -1,10 +1,13 @@
-
 #!/bin/bash
 
 
 echo "#######################################"
 echo "## Start -- 开始准备环境"
 echo "#######################################"
+
+# 设置环境变量
+REPO_RPOXY=https://repo.it.ouxxa.com
+TIMEZONE=Asia/Shanghai
 
 
 echo "==========关闭防火墙和selinux=========="
@@ -27,77 +30,74 @@ echo "=============Done.====================="
 
 
 echo "===============更新nexus yum仓库==================="
+# 修改yum.conf取消ssl验证，避免服务器时间落后导致验证证书失败
+tee /etc/yum.conf <<-'EOF'
+[main]
+sslverify=0
+cachedir=/var/cache/yum/$basearch/$releasever
+keepcache=0
+debuglevel=2
+logfile=/var/log/yum.log
+exactarch=1
+obsoletes=1
+gpgcheck=1
+plugins=1
+installonly_limit=5
+bugtracker_url=http://bugs.centos.org/set_project.php?project_id=23&ref=http://bugs.centos.org/bug_report_page.php?category=yum
+distroverpkg=centos-release
+EOF
+
 mkdir -p /etc/yum.repos.d/bak
 mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak
 
-tee /etc/yum.repos.d/nexus.repo <<-'EOF'
+tee /etc/yum.repos.d/nexus.repo <<-EOF
 [base]
-name=CentOS-$releasever - Base
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/os/$basearch/
+name=CentOS-\$releasever - Base
+baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/os/\$basearch/
 gpgcheck=0
 
 [updates]
-name=CentOS-$releasever - Updates
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/updates/$basearch/
+name=CentOS-\$releasever - Updates
+baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/updates/\$basearch/
 gpgcheck=0
 
 [extras]
-name=CentOS-$releasever - Extras
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/extras/$basearch/
+name=CentOS-\$releasever - Extras
+baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/extras/\$basearch/
 gpgcheck=0
 
 [epel]
-name=CentOS-$releasever - epel
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/$basearch/
+name=CentOS-\$releasever - epel
+baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/\$basearch/
 gpgcheck=0
 
 [docker-ce]
-name=Docker CE Stable - $basearch
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/$basearch/stable
+name=Docker CE Stable - \$basearch
+baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/\$basearch/stable
 gpgcheck=0
 EOF
-#更新源
-yum update -y
-mkdir -p /etc/yum.repos.d/bak
-mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak
 
-tee /etc/yum.repos.d/nexus.repo <<-'EOF'
-[base]
-name=CentOS-$releasever - Base
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/os/$basearch/
-gpgcheck=0
-
-[updates]
-name=CentOS-$releasever - Updates
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/updates/$basearch/
-gpgcheck=0
-
-[extras]
-name=CentOS-$releasever - Extras
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/extras/$basearch/
-gpgcheck=0
-
-[epel]
-name=CentOS-$releasever - epel
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/$basearch/
-gpgcheck=0
-
-[docker-ce]
-name=Docker CE Stable - $basearch
-baseurl=http://10.0.1.100:8088/repository/yum-group/$releasever/$basearch/stable
-gpgcheck=0
-EOF
+yum clean all
 yum repolist
+yum makecache
+
+yum update -y
+yum update -y
+rm -rf /etc/yum.repos.d/CentOS-*
+yum clean all
+yum repolist
+yum makecache
 echo "=======================Done.===================="
 
 
 echo "===============同步时间=================="
 yum -y install chrony
+yum -y install chrony
 sed -i.bak '3,6d' /etc/chrony.conf && sed -i '3cserver ntp1.aliyun.com iburst' /etc/chrony.conf
 systemctl start chronyd && systemctl enable chronyd
 
 chronyc sources
-timedatectl set-timezone Asia/Shanghai
+timedatectl set-timezone $TIMEZONE
 date
 echo "================Done.===================="
 
@@ -127,39 +127,23 @@ EOF
 chmod 755 /etc/sysconfig/modules/ipvs.modules
 bash /etc/sysconfig/modules/ipvs.modules && lsmod | grep -e ip_vs -e nf_conntrack_ipv4
 yum -y install ipset ipvsadm
+yum -y install ipset ipvsadm
 echo "===============Done.==================="
 
 
 echo "===========安装docker-ce============="
 yum -y install docker-ce docker-ce-cli
+yum -y install docker-ce docker-ce-cli
 
-mkdir ~/.docker
-touch ~/.docker/config.json
-tee ~/.docker/config.json <<-'EOF'
-{
- "proxies":
- {
-   "default":
-   {
-     "httpProxy": "http://10.0.1.100:7890",
-     "httpsProxy": "http://10.0.1.100:7890",
-     "noProxy": "127.0.0.0/8,localhost,100.233.64.0/18,100.233.0.0/18,10.0.0.0/16"
-   }
- }
-}
-EOF
-
-systemctl enable docker && systemctl start docker
-
+mkdir /etc/docker
 touch /etc/docker/daemon.json
-tee /etc/docker/daemon.json <<-'EOF'
+tee /etc/docker/daemon.json <<-EOF
 {
   "log-opts": {
     "max-size": "5m",
     "max-file": "3"
   },
-  "registry-mirrors": ["http://10.0.1.100:5748"],
-  "insecure-registries": ["10.0.1.100:5748"],
+  "registry-mirrors": ["$REPO_RPOXY"],
   "exec-opts": ["native.cgroupdriver=systemd"]
 }
 EOF
@@ -172,16 +156,30 @@ docker version
 echo "===============Done.=================="
 
 
-
-echo "===安装iSCSI client -- for openebs==="
-yum install iscsi-initiator-utils -y
-systemctl start iscsid
+echo "======================安装iscsi,nfw client for longhorn/openebs cas存储========================="
+# 安装iscsi client, nfsv4 client
+yum --setopt=tsflags=noscripts install iscsi-initiator-utils -y
+yum --setopt=tsflags=noscripts install iscsi-initiator-utils -y
+yum install nfs-utils -y
+yum install nfs-utils -y
+echo "InitiatorName=$(/sbin/iscsi-iname)" > /etc/iscsi/initiatorname.iscsi
 systemctl enable iscsid
-echo "============Done.===================="
+systemctl start iscsid
+modprobe iscsi_tcp
+echo "=========================================Done.================================================"
 
 
 echo "======================安装依赖===================="
-yum install socat nfs-utils rpcbind wget jq psmisc vim yum-utils net-tools telnet openssl ebtables ipset conntrack device-mapper-persistent-data lvm2  ntpdate ipvsadm ipset sysstat conntrack libseccomp -y
+yum install util-linux socat rpcbind wget jq psmisc vim \
+  yum-utils net-tools telnet openssl ebtables ipset conntrack \
+  device-mapper-persistent-data lvm2 \
+  ntpdate ipvsadm ipset sysstat conntrack libseccomp curl \
+  -y
+yum install util-linux socat rpcbind wget jq psmisc vim \
+  yum-utils net-tools telnet openssl ebtables ipset conntrack \
+  device-mapper-persistent-data lvm2 \
+  ntpdate ipvsadm ipset sysstat conntrack libseccomp curl \
+  -y
 echo "======================Done.======================"
 
 
