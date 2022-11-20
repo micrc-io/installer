@@ -175,8 +175,8 @@ snap connect certbot:plugin certbot-dns-aliyun
 
 mkdir /etc/letsencrypt
 cat > /etc/letsencrypt/aliyun-credentials.ini <<EOF
-dns_aliyun_access_key=LTAI5tBxt1VCA5CqdoS2ShBZ
-dns_aliyun_access_key_secret=YsjxpdgtFZcGKyk8khnfJZAhAeO4nj
+dns_aliyun_access_key=$1
+dns_aliyun_access_key_secret=$2
 EOF
 chmod 600 /etc/letsencrypt/aliyun-credentials.ini
 
