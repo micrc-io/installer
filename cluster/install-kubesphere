@@ -20,7 +20,7 @@ function wait() {
 
 GITLAB_VERSION=6.5.5
 CERTMANAGER_VERSION=v1.10.0
-ORG_DOMAIN_NAME=cat ./owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'
+ORG_DOMAIN_NAME=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'`
 
 
 echo "=============配置ectd监控============"

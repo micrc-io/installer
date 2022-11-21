@@ -3,11 +3,11 @@
 # 设置环境变量
 VERSION=v1.22.10
 # 组织域名称
-ORG_DOMAIN=cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'
+ORG_DOMAIN=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
 # EIP分配范围，不要与内网 dhcp重叠
-EIP_ADDRESS_RANGE=cat ./owner.config | awk '{if($1 == "EIP_ADDRESS_RANGE") print $2}'
+EIP_ADDRESS_RANGE=`cat ./owner.config | awk '{if($1 == "EIP_ADDRESS_RANGE") print $2}'`
 # 路由地址
-ROUTER_ADDRESS=cat ./owner.config | awk '{if($1 == "ROUTER_ADDRESS") print $2}'
+ROUTER_ADDRESS=`cat ./owner.config | awk '{if($1 == "ROUTER_ADDRESS") print $2}'`
 
 
 echo "=============================开始安装kubernetes================================"
