@@ -1,0 +1,8 @@
+REPO_PROXY			https://repo.it.xxx.com
+TIMEZONE			Asia/Shanghai
+ORG_DOMAIN 			xxx
+ORG_DOMAIN_NAME		xxx.com
+ROUTER_ADDRESS		10.0.0.1
+EIP_ADDRESS_RANGE	10.0.5.1-10.0.5.100
+DNS01_KEY			xxx
+DNS01_SECRET		xxx

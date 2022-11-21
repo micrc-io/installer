@@ -6,8 +6,8 @@ echo "## Start -- 开始准备环境"
 echo "#######################################"
 
 # 设置环境变量
-REPO_RPOXY=https://repo.it.ouxxa.com
-TIMEZONE=Asia/Shanghai
+REPO_PROXY=cat ./owner.config | awk '{if($1 == "REPO_PROXY") print $2}'
+TIMEZONE=cat ./owner.config | awk '{if($1 == "TIMEZONE") print $2}'
 
 
 echo "==========关闭防火墙和selinux=========="
@@ -53,27 +53,27 @@ mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/bak
 tee /etc/yum.repos.d/nexus.repo <<-EOF
 [base]
 name=CentOS-\$releasever - Base
-baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/os/\$basearch/
+baseurl=$REPO_PROXY/repository/yum-hub/\$releasever/os/\$basearch/
 gpgcheck=0
 
 [updates]
 name=CentOS-\$releasever - Updates
-baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/updates/\$basearch/
+baseurl=$REPO_PROXY/repository/yum-hub/\$releasever/updates/\$basearch/
 gpgcheck=0
 
 [extras]
 name=CentOS-\$releasever - Extras
-baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/extras/\$basearch/
+baseurl=$REPO_PROXY/repository/yum-hub/\$releasever/extras/\$basearch/
 gpgcheck=0
 
 [epel]
 name=CentOS-\$releasever - epel
-baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/\$basearch/
+baseurl=$REPO_PROXY/repository/yum-hub/\$releasever/\$basearch/
 gpgcheck=0
 
 [docker-ce]
 name=Docker CE Stable - \$basearch
-baseurl=$REPO_RPOXY/repository/yum-hub/\$releasever/\$basearch/stable
+baseurl=$REPO_PROXY/repository/yum-hub/\$releasever/\$basearch/stable
 gpgcheck=0
 EOF
 
@@ -143,7 +143,7 @@ tee /etc/docker/daemon.json <<-EOF
     "max-size": "5m",
     "max-file": "3"
   },
-  "registry-mirrors": ["$REPO_RPOXY"],
+  "registry-mirrors": ["$REPO_PROXY"],
   "exec-opts": ["native.cgroupdriver=systemd"]
 }
 EOF

@@ -20,7 +20,7 @@ function wait() {
 
 GITLAB_VERSION=6.5.5
 CERTMANAGER_VERSION=v1.10.0
-ORG_DOMAIN_NAME=ouxxa.com
+ORG_DOMAIN_NAME=cat ./owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'
 
 
 echo "=============配置ectd监控============"
@@ -37,6 +37,41 @@ kubectl -n kubesphere-monitoring-system create secret generic kube-etcd-client-c
         --from-file=etcd-client.key=/etc/ssl/etcd/ssl/node-master1-key.pem
 echo "=================Done.================="
 
+
+echo "============================创建cert-manager========================="
+kubectl create namespace cert-manager
+helm repo add jetstack https://charts.jetstack.io
+helm repo update
+
+helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager \
+	--version $CERTMANAGER_VERSION \
+	--set image.repository=jetstack/cert-manager-controller
+	--set installCRDs=true \
+	--set 'extraArgs={--dns01-recursive-nameservers-only,--dns01-recursive-nameservers=223.5.5.5:53\,1.1.1.1:53}'
+
+helm upgrade --install alidns-webhook ./config/cert/alidns-webhook --namespace cert-manager \
+  --set image.repository=devmachine-fr/cert-manager-alidns-webhook/cert-manager-alidns-webhook
+	--set groupName=acme.$ORG_DOMAIN_NAME \
+echo "=================================Done.==============================="
+
+echo "======================配置cert-manager-namespace====================="
+kubectl label namespace cert-manager kubesphere.io/workspace=system-workspace
+kubectl label namespace cert-manager istio-injection=disabled
+echo "================================Done.================================"
+
+
+echo "===========================创建sealed-secrets========================"
+kubectl apply -f ./config/sealed-secrets.yaml
+echo "=================================Done.================================"
+
+
+echo "========================安装kubernetes-reflector====================="
+helm repo add emberstack https://emberstack.github.io/helm-charts
+helm repo update
+helm upgrade --install reflector emberstack/reflector --namespace kube-system
+echo "=================================Done.==============================="
+
+
 echo "=================安装kubesphere================="
 # 包括日志，事件，监控告警（包括etcd监控），审计，服务拓扑
 kubectl apply -f ./config/kubesphere-installer.yaml
@@ -47,6 +82,7 @@ wait
 
 # 配置ks console eip
 echo "====================Done.======================="
+
 
 echo "=================配置kubesphere-basic-namespace================="
 # 为namespace添加label: istio-injection=disabled不允许sidecar注入, kubesphere.io/workspace=system-workspace标记为kubesphere系统空间
@@ -78,6 +114,46 @@ echo "等待kubesphere-devops安装..."
 wait
 
 # 安装gitlab
+# 安装证书
+cat <<EOF | kubectl apply -f -
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aliyun-secret
+  namespace: gitlab-system
+type: Opaque
+stringData:
+  access-key: `cat ./owner.config | awk '{if($1 == "DNS01_KEY") print $2}'`
+  secret-key: `cat ./owner.config | awk '{if($1 == "DNS01_SECRET") print $2}'`
+
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  namespace: gitlab-system
+  name: letsencrypt
+spec:
+  acme:
+    email: developer@ouxxa.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-account-key
+    solvers:
+    - dns01:
+        webhook:
+          groupName: acme.micrc.io
+          solverName: alidns-solver
+          config:
+            accessTokenSecretRef:
+              name: aliyun-secret
+              key: access-key
+            secretKeySecretRef:
+              name: aliyun-secret
+              key: secret-key
+EOF
+
+# 安装
 kubectl create namespace gitlab-system
 helm repo add gitlab https://charts.gitlab.io
 helm repo update
@@ -117,43 +193,11 @@ wait
 echo "=============================Done.================================"
 
 
-echo "============================创建cert-manager========================="
-kubectl create namespace cert-manager
-helm repo add jetstack https://charts.jetstack.io
-helm repo update
+echo "========================安装micrc设计系统和模式管理器==================="
+kubectl create ns micrc-system
 
-helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager \
-	--version $CERTMANAGER_VERSION \
-	--set image.repository=jetstack/cert-manager-controller
-	--set installCRDs=true \
-	--set 'extraArgs={--dns01-recursive-nameservers-only,--dns01-recursive-nameservers=223.5.5.5:53\,1.1.1.1:53}'
-
-helm upgrade --install alidns-webhook ./config/cert/alidns-webhook --namespace cert-manager \
-  --set image.repository=devmachine-fr/cert-manager-alidns-webhook/cert-manager-alidns-webhook
-	--set groupName=acme.$ORG_DOMAIN_NAME \
-
-echo "等待cert-manager启动..."
-sleep 120 # todo 修复，查看cert-manager状态以决定是否继续运行或等待
-echo "=================================Done.==============================="
-
-echo "======================配置cert-manager-namespace====================="
-kubectl label namespace cert-manager kubesphere.io/workspace=system-workspace
-kubectl label namespace cert-manager istio-injection=disabled
-echo "================================Done.================================"
-
-
-echo "===========================创建sealed-secrets========================"
-kubectl apply -f ./config/sealed-secrets.yaml
-
-echo "等待sealed-secrets-controller启动..."
-sleep 120 # todo 修复，查看cert-manager状态以决定是否继续运行或等待
-echo "=================================Done.================================"
-
-
-echo "========================安装kubernetes-reflector====================="
-helm repo add emberstack https://emberstack.github.io/helm-charts
-helm repo update
-helm upgrade --install reflector emberstack/reflector --namespace kube-system
+kubectl label namespace micrc-system kubesphere.io/workspace=system-workspace
+kubectl label namespace micrc-system istio-injection=disabled
 echo "=================================Done.==============================="
 
 

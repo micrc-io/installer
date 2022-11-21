@@ -30,9 +30,9 @@ metadata:
  name: proxy-config
  annotations:
    reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
-   reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "gitlab-system"
+   reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "gitlab-system,mircr-system"
    reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
-   reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "gitlab-system"
+   reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "gitlab-system,micrc-system"
 data:
  http_proxy: "http://10.0.0.102:7890"
  HTTP_PROXY: "http://10.0.0.102:7890"

@@ -3,11 +3,11 @@
 # 设置环境变量
 VERSION=v1.22.10
 # 组织域名称
-ORG_DOMAIN=ouxxa
+ORG_DOMAIN=cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'
 # EIP分配范围，不要与内网 dhcp重叠
-EIP_ADDRESS_RANGE=10.0.5.1-10.0.5.100
+EIP_ADDRESS_RANGE=cat ./owner.config | awk '{if($1 == "EIP_ADDRESS_RANGE") print $2}'
 # 路由地址
-ROUTER_ADDRESS=10.0.0.1
+ROUTER_ADDRESS=cat ./owner.config | awk '{if($1 == "ROUTER_ADDRESS") print $2}'
 
 
 echo "=============================开始安装kubernetes================================"
@@ -25,12 +25,22 @@ kubectl get configmap kube-proxy -n kube-system -o yaml | \
 	sed -e "s/strictARP: false/strictARP: true/" | \
 	kubectl apply -f - -n kube-system
 kubectl get pod -n kube-system | grep kube-proxy | awk '{system("kubectl delete pod "$1" -n kube-system")}'
-sleep 20  # todo 修复，查看kube-proxy状态决定是否运行或等待
+sleep 20
 kubectl get pod -n kube-system | grep kube-proxy | awk '{system("kubectl logs "$1" -n kube-system")}' | egrep "ipvs"
 echo "=========================Done.============================="
 
 
 echo "===========================安装longhron cas存储======================"
+function waitLonghorn() {
+  sleep 60
+  CNT=0
+  while [[ -n "`kubectl get pod -n longhorn-system | egrep 'longhorn|csi|engine|manager' | awk '$3 !~ /Running/ {print $3}'`" ]]; do
+    CNT=`expr $CNT + 5`
+    echo "Longhorn installing...$CNT s"
+    sleep 5
+  done
+  echo "Longhorn insalled. $CNT s"
+}
 # note: 云环境使用供应商提供的存储方案，存储类不适合自行处理;
 # 开发集成集群使用cas存储方案，外加nfs二级备份存储
 # 安装longhorn
@@ -44,18 +54,50 @@ kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
   -p='[{"op": "add", "path": "/spec/loadBalancerIP", "value": "10.0.5.100"}]'
 kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
   -p='[{"op": "replace", "path": "/spec/type", "value": "LoadBalancer"}]'
+
+echo "等待Longhorn安装..."
+while [ 0 -eq 0 ]; do
+  waitLonghorn
+  if [ $? -eq 0 ]; then
+    break;
+  else
+    echo "Error. retry after 2s"
+    sleep 2
+  fi
+done
 echo "===============================Done.================================"
 
 
 echo "=====================创建openelb负载均衡器ip pool====================="
+function waitOpenELB() {
+  sleep 60
+  CNT=0
+  while [[ -n "`kubectl get pod -n kube-system | grep openelb-manager | awk '$3 !~ /Running/ {print $3}'`" ]]; do
+    CNT=`expr $CNT + 5`
+    echo "OpenELB installing...$CNT s"
+    sleep 5
+  done
+  echo "OpenELB insalled. $CNT s"
+}
+
+# 安装openelb，用于非云环境提供负载均衡ip
 kubectl label --overwrite nodes master1 master2 master3 lb.kubesphere.io/v1alpha1=openelb
 helm repo add stable https://charts.kubesphere.io/stable
 helm repo update
 helm upgrade --install -f ./config/openelb-values.yaml -n kube-system openelb stable/openelb
 
 kubectl scale deployment openelb-manager --replicas=3 -n kube-system
-echo "等待openelb-manager启动..."
-sleep 150  # todo 修复，查看openelb-manager状态以决定是否继续运行或等待
+
+echo "等待OpenELB安装..."
+while [ 0 -eq 0 ]; do
+  waitOpenELB
+  if [ $? -eq 0 ]; then
+    break;
+  else
+    echo "Error. retry after 2s"
+    sleep 2
+  fi
+done
 
 cat <<EOF | kubectl create -f -
 ---
@@ -69,7 +111,6 @@ spec:
   protocol: layer2
   disable: false
 EOF
-
 echo "==============================Done.=================================="
 
 
