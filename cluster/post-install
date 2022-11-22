@@ -40,8 +40,8 @@ data:
  HTTPS_PROXY: "http://10.0.0.102:7890"
  all_proxy: "http://10.0.0.102:7890"
  ALL_PROXY: "http://10.0.0.102:7890"
- no_proxy: "localhost,127.0.0.0/8,10.0.0.0/16,100.233.0.0/18,100.233.64.0/18,*.integration.ouxxa.com,*.it.ouxxa.com"
- NO_PROXY: "localhost,127.0.0.0/8,10.0.0.0/16,100.233.0.0/18,100.233.64.0/18,*.integration.ouxxa.com,*.it.ouxxa.com"
+ no_proxy: "localhost,127.0.0.0/8,10.0.0.0/16,172.16.0.0/12,192.168.0.0/16,*.integration.ouxxa.com,*.it.ouxxa.com"
+ NO_PROXY: "localhost,127.0.0.0/8,10.0.0.0/16,172.16.0.0/12,192.168.0.0/16,*.integration.ouxxa.com,*.it.ouxxa.com"
 EOF
 
 # devops-argocd-repo-server需要代理访问github

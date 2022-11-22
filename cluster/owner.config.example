@@ -6,3 +6,6 @@ ROUTER_ADDRESS		10.0.0.1
 EIP_ADDRESS_RANGE	10.0.5.1-10.0.5.100
 DNS01_KEY			acme dns01验证需要的域名供应商accesskey
 DNS01_SECRET		域名供应商keysecret
+NET_HTTP_PROXY		代理地址http://xxx:1080
+NET_SOCK_PROXY		sock代理socks5://xxx:1081
+IGNORE_PROXY		127.0.0.0/8,localhost,本地局域网段,kubernetes Pod/Service CIDR网段,内网中使用的域名

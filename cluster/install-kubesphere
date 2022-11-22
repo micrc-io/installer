@@ -6,6 +6,12 @@ echo "## Start -- 开始最小化安装KubeSphere"
 echo "#######################################"
 
 
+# ks安装在kubesphere-system下的pod都有对master taints(污点)的tolerations(容忍) - node-role.kubernetes.io/master:NoSchedule
+# 导致openldap和redis的pvc在master节点上获取存储卷，而longhorn安装是不使用master节点存储的
+# 所以在安装前为3个master节点新增加一个taint
+kubectl taint nodes master1 master2 master3 node-role.micrc.io/master=:NoSchedule --overwrite
+
+
 function wait() {
 	sleep 60
 	CNT=0
@@ -19,8 +25,39 @@ function wait() {
 
 
 GITLAB_VERSION=6.5.5
-CERTMANAGER_VERSION=v1.10.0
+CERTMANAGER_VERSION=v1.10.1
 ORG_DOMAIN_NAME=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'`
+NET_HTTP_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
+NET_SOCK_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
+IGNORE_PROXY=`cat ./owner.config | awk '{if($1 == "IGNORE_PROXY") print $2}'`
+
+
+echo "=========================创建代理configmap修复github访问========================"
+kubectl create ns gitlab-system
+kubectl create ns micrc-system
+cat <<EOF | kubectl apply -f -
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+ namespace: kube-system
+ name: proxy-config
+ annotations:
+   reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+   reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "gitlab-system,micrc-system"
+   reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+   reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "gitlab-system,micrc-system"
+data:
+ http_proxy: "$NET_HTTP_PROXY"
+ HTTP_PROXY: "$NET_HTTP_PROXY"
+ https_proxy: "$NET_HTTP_PROXY"
+ HTTPS_PROXY: "$NET_HTTP_PROXY"
+ all_proxy: "$NET_SOCK_PROXY"
+ ALL_PROXY: "$NET_SOCK_PROXY"
+ no_proxy: "$IGNORE_PROXY"
+ NO_PROXY: "$IGNORE_PROXY"
+EOF
+echo "==================================Done.========================================="
 
 
 echo "=============配置ectd监控============"
@@ -45,13 +82,20 @@ helm repo update
 
 helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager \
 	--version $CERTMANAGER_VERSION \
-	--set image.repository=jetstack/cert-manager-controller
+	--set image.repository=jetstack/cert-manager-controller \
+	--set image.tag=$CERTMANAGER_VERSION \
+	--set webhook.image.repository=jetstack/cert-manager-webhook \
+	--set webhook.image.tag=$CERTMANAGER_VERSION \
+	--set cainjector.image.repository=jetstack/cert-manager-cainjector \
+	--set cainjector.image.tag=$CERTMANAGER_VERSION \
+	--set startupapicheck.image.repository=jetstack/cert-manager-ctl \
+	--set startupapicheck.image.tag=$CERTMANAGER_VERSION \
 	--set installCRDs=true \
 	--set 'extraArgs={--dns01-recursive-nameservers-only,--dns01-recursive-nameservers=223.5.5.5:53\,1.1.1.1:53}'
 
 helm upgrade --install alidns-webhook ./config/cert/alidns-webhook --namespace cert-manager \
-  --set image.repository=devmachine-fr/cert-manager-alidns-webhook/cert-manager-alidns-webhook
-	--set groupName=acme.$ORG_DOMAIN_NAME \
+  --set image.repository=devmachine-fr/cert-manager-alidns-webhook/cert-manager-alidns-webhook \
+	--set groupName=acme.$ORG_DOMAIN_NAME
 echo "=================================Done.==============================="
 
 echo "======================配置cert-manager-namespace====================="
@@ -61,7 +105,7 @@ echo "================================Done.================================"
 
 
 echo "===========================创建sealed-secrets========================"
-kubectl apply -f ./config/sealed-secrets.yaml
+kubectl apply -f ./config/devops/sealed-secrets.yaml
 echo "=================================Done.================================"
 
 
