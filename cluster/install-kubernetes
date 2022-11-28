@@ -34,12 +34,20 @@ echo "===========================安装longhron cas存储======================"
 function waitLonghorn() {
   sleep 60
   CNT=0
-  while [[ -n "`kubectl get pod -n longhorn-system | egrep 'longhorn|csi|engine|manager' | awk '$3 !~ /Running/ {print $3}'`" ]]; do
-    CNT=`expr $CNT + 5`
-    echo "Longhorn installing...$CNT s"
-    sleep 5
+  while [ 0 -eq 0 ]; do
+    STATE=`kubectl get pod -n longhorn-system | egrep 'longhorn|csi|engine|manager' | awk '$3 !~ /Running/ {print $3}'`
+    if [ $? -eq 0 ]; then
+      if [ -n "$STATE" ]; then
+        CNT=`expr $CNT + 5`
+        echo "Longhorn installing...$CNT s"
+        sleep 5
+      else
+        break;
+      fi
+    else
+      return -1;
+    fi
   done
-  echo "Longhorn insalled. $CNT s"
 }
 # note: 云环境使用供应商提供的存储方案，存储类不适合自行处理;
 # 开发集成集群使用cas存储方案，外加nfs二级备份存储
@@ -65,6 +73,7 @@ while [ 0 -eq 0 ]; do
     sleep 2
   fi
 done
+echo "Longhorn insalled. "
 echo "===============================Done.================================"
 
 
@@ -72,12 +81,20 @@ echo "=====================创建openelb负载均衡器ip pool==================
 function waitOpenELB() {
   sleep 60
   CNT=0
-  while [[ -n "`kubectl get pod -n kube-system | grep openelb-manager | awk '$3 !~ /Running/ {print $3}'`" ]]; do
-    CNT=`expr $CNT + 5`
-    echo "OpenELB installing...$CNT s"
-    sleep 5
+  while [ 0 -eq 0 ]; do
+    STATE=`kubectl get pod -n kube-system | grep openelb-manager | awk '$3 !~ /Running/ {print $3}'`
+    if [ $? -eq 0 ]; then
+      if [ -n "$STATE" ]; then
+        CNT=`expr $CNT + 5`
+        echo "OpenELB installing...$CNT s"
+        sleep 5
+      else
+        break;
+      fi
+    else
+      return -1;
+    fi
   done
-  echo "OpenELB insalled. $CNT s"
 }
 
 # 安装openelb，用于非云环境提供负载均衡ip
@@ -98,6 +115,7 @@ while [ 0 -eq 0 ]; do
     sleep 2
   fi
 done
+echo "OpenELB insalled. "
 
 cat <<EOF | kubectl create -f -
 ---

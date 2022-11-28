@@ -6,6 +6,11 @@ echo "## Start -- Post install"
 echo "#######################################"
 
 
+NET_HTTP_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
+NET_SOCK_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
+IGNORE_PROXY=`cat ./owner.config | awk '{if($1 == "IGNORE_PROXY") print $2}'`
+
+
 echo "==========================修复argocd out of sync问题============================"
 # cert-manager Certificate duration和renewBefore不识别导致out of sync
 kubectl patch -n argocd configmap argocd-cm --type=json -p='[{"op": "add", "path": "/data/resource.customizations.ignoreDifferences.cert-manager.io_Certificate", "value": "jsonPointers:\n- /spec/duration\n- /spec/renewBefore\n"}]'
@@ -30,27 +35,79 @@ metadata:
  name: proxy-config
  annotations:
    reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
-   reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "gitlab-system,mircr-system"
+   reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "micrc-system"
    reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
-   reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "gitlab-system,micrc-system"
+   reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "micrc-system"
 data:
- http_proxy: "http://10.0.0.102:7890"
- HTTP_PROXY: "http://10.0.0.102:7890"
- https_proxy: "http://10.0.0.102:7890"
- HTTPS_PROXY: "http://10.0.0.102:7890"
- all_proxy: "http://10.0.0.102:7890"
- ALL_PROXY: "http://10.0.0.102:7890"
- no_proxy: "localhost,127.0.0.0/8,10.0.0.0/16,172.16.0.0/12,192.168.0.0/16,*.integration.ouxxa.com,*.it.ouxxa.com"
- NO_PROXY: "localhost,127.0.0.0/8,10.0.0.0/16,172.16.0.0/12,192.168.0.0/16,*.integration.ouxxa.com,*.it.ouxxa.com"
+ http_proxy: "$NET_HTTP_PROXY"
+ HTTP_PROXY: "$NET_HTTP_PROXY"
+ https_proxy: "$NET_HTTP_PROXY"
+ HTTPS_PROXY: "$NET_HTTP_PROXY"
+ all_proxy: "$NET_SOCK_PROXY"
+ ALL_PROXY: "$NET_SOCK_PROXY"
+ no_proxy: "$IGNORE_PROXY"
+ NO_PROXY: "$IGNORE_PROXY"
 EOF
 
-# devops-argocd-repo-server需要代理访问github
-#kubectl patch -n argocd deployment devops-argocd-repo-server -p '{"spec": {"template": {"spec": {"containers": [{"name": "repo-server", "envFrom": [{ "configMapRef": { "name": "proxy-config" } }]}]}}}}'
-#kubectl patch -n kubesphere-devops-system deployment  devops-jenkins -p '{"spec": {"template": {"spec": {"containers": [{"name": "devops-jenkins", "envFrom": [{"configMapRef": {"name": "proxy-config"}}]}]}}}}'
+# devops-argocd-repo-server, devops-jenkins需要代理访问github
+kubectl patch -n argocd deployment devops-argocd-repo-server -p '{"spec": {"template": {"spec": {"containers": [{"name": "repo-server", "envFrom": [{ "configMapRef": { "name": "proxy-config" } }]}]}}}}'
+kubectl patch -n kubesphere-devops-system deployment  devops-jenkins -p '{"spec": {"template": {"spec": {"containers": [{"name": "devops-jenkins", "envFrom": [{"configMapRef": {"name": "proxy-config"}}]}]}}}}'
 
-#kubectl rollout restart -n argocd deploy devops-argocd-repo-server
-#kubectl rollout restart -n kubesphere-devops-system deploy devops-jenkins
-#echo "==================================Done.========================================="
+kubectl rollout restart -n argocd deploy devops-argocd-repo-server
+kubectl rollout restart -n kubesphere-devops-system deploy devops-jenkins
+echo "==================================Done.========================================="
+
+
+# 安装gitlab
+# 安装证书
+# cat <<EOF | kubectl apply -f -
+# ---
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: aliyun-secret
+#   namespace: gitlab-system
+# type: Opaque
+# stringData:
+#   access-key: `cat ./owner.config | awk '{if($1 == "DNS01_KEY") print $2}'`
+#   secret-key: `cat ./owner.config | awk '{if($1 == "DNS01_SECRET") print $2}'`
+
+# ---
+# apiVersion: cert-manager.io/v1
+# kind: Issuer
+# metadata:
+#   namespace: gitlab-system
+#   name: letsencrypt
+# spec:
+#   acme:
+#     email: developer@ouxxa.com
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     privateKeySecretRef:
+#       name: letsencrypt-account-key
+#     solvers:
+#     - dns01:
+#         webhook:
+#           groupName: acme.micrc.io
+#           solverName: alidns-solver
+#           config:
+#             accessTokenSecretRef:
+#               name: aliyun-secret
+#               key: access-key
+#             secretKeySecretRef:
+#               name: aliyun-secret
+#               key: secret-key
+# EOF
+
+# # 安装
+# kubectl create namespace gitlab-system
+# helm repo add gitlab https://charts.gitlab.io
+# helm repo update
+
+# kubectl apply -f ./config/devops/gitlab-cert.yaml
+
+# helm upgrade --install gitlab gitlab/gitlab --namespace gitlab-system \
+#   --version $GITLAB_VERSION \
+#   -f ./config/devops/gitlab-values.yaml
 
 
 echo "######################################"

@@ -27,37 +27,6 @@ function wait() {
 GITLAB_VERSION=6.5.5
 CERTMANAGER_VERSION=v1.10.1
 ORG_DOMAIN_NAME=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'`
-NET_HTTP_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
-NET_SOCK_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
-IGNORE_PROXY=`cat ./owner.config | awk '{if($1 == "IGNORE_PROXY") print $2}'`
-
-
-echo "=========================创建代理configmap修复github访问========================"
-kubectl create ns gitlab-system
-kubectl create ns micrc-system
-cat <<EOF | kubectl apply -f -
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
- namespace: kube-system
- name: proxy-config
- annotations:
-   reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
-   reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "gitlab-system,micrc-system"
-   reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
-   reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "gitlab-system,micrc-system"
-data:
- http_proxy: "$NET_HTTP_PROXY"
- HTTP_PROXY: "$NET_HTTP_PROXY"
- https_proxy: "$NET_HTTP_PROXY"
- HTTPS_PROXY: "$NET_HTTP_PROXY"
- all_proxy: "$NET_SOCK_PROXY"
- ALL_PROXY: "$NET_SOCK_PROXY"
- no_proxy: "$IGNORE_PROXY"
- NO_PROXY: "$IGNORE_PROXY"
-EOF
-echo "==================================Done.========================================="
 
 
 echo "=============配置ectd监控============"
@@ -156,57 +125,6 @@ kubectl patch -n kubesphere-system cc ks-installer --type=json -p='[{"op": "repl
 
 echo "等待kubesphere-devops安装..."
 wait
-
-# 安装gitlab
-# 安装证书
-cat <<EOF | kubectl apply -f -
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: aliyun-secret
-  namespace: gitlab-system
-type: Opaque
-stringData:
-  access-key: `cat ./owner.config | awk '{if($1 == "DNS01_KEY") print $2}'`
-  secret-key: `cat ./owner.config | awk '{if($1 == "DNS01_SECRET") print $2}'`
-
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  namespace: gitlab-system
-  name: letsencrypt
-spec:
-  acme:
-    email: developer@ouxxa.com
-    server: https://acme-v02.api.letsencrypt.org/directory
-    privateKeySecretRef:
-      name: letsencrypt-account-key
-    solvers:
-    - dns01:
-        webhook:
-          groupName: acme.micrc.io
-          solverName: alidns-solver
-          config:
-            accessTokenSecretRef:
-              name: aliyun-secret
-              key: access-key
-            secretKeySecretRef:
-              name: aliyun-secret
-              key: secret-key
-EOF
-
-# 安装
-kubectl create namespace gitlab-system
-helm repo add gitlab https://charts.gitlab.io
-helm repo update
-
-kubectl apply -f ./config/devops/gitlab-cert.yaml
-
-helm upgrade --install gitlab gitlab/gitlab --namespace gitlab-system \
-	--version $GITLAB_VERSION \
-	-f ./config/devops/gitlab-values.yaml
 echo "============================Done.============================"
 
 echo "=================配置kubesphere-devops-namespace================="
