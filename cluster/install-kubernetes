@@ -8,6 +8,8 @@ ORG_DOMAIN=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
 EIP_ADDRESS_RANGE=`cat ./owner.config | awk '{if($1 == "EIP_ADDRESS_RANGE") print $2}'`
 # 路由地址
 ROUTER_ADDRESS=`cat ./owner.config | awk '{if($1 == "ROUTER_ADDRESS") print $2}'`
+# 存储控制台地址
+STORAGE_ADDRESS=`cat ./owner.config | awk '{if($1 == "STORAGE_ADDRESS") print $2}'`
 
 
 echo "=============================开始安装kubernetes================================"
@@ -35,8 +37,9 @@ function waitLonghorn() {
   sleep 60
   CNT=0
   while [ 0 -eq 0 ]; do
-    STATE=`kubectl get pod -n longhorn-system | egrep 'longhorn|csi|engine|manager' | awk '$3 !~ /Running/ {print $3}'`
+    STATE=`kubectl get pod -n longhorn-system`
     if [ $? -eq 0 ]; then
+      STATE=`echo "$STATE" | egrep 'longhorn|csi|engine|manager' | awk '$3 !~ /Running|STATUS/ {print $3}'`
       if [ -n "$STATE" ]; then
         CNT=`expr $CNT + 5`
         echo "Longhorn installing...$CNT s"
@@ -45,7 +48,7 @@ function waitLonghorn() {
         break;
       fi
     else
-      return -1;
+      return 255;
     fi
   done
 }
@@ -59,7 +62,7 @@ helm upgrade --install longhorn ./config/longhorn --namespace longhorn-system \
 kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
   -p="[{\"op\": \"add\", \"path\": \"/metadata/annotations\", \"value\": {\"lb.kubesphere.io/v1alpha1\": \"openelb\", \"protocol.openelb.kubesphere.io/v1alpha1\": \"layer2\", \"eip.openelb.kubesphere.io/v1alpha2\": \"$ORG_DOMAIN-dev-eip\"}}]"
 kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
-  -p='[{"op": "add", "path": "/spec/loadBalancerIP", "value": "10.0.5.100"}]'
+  -p="[{\"op\": \"add\", \"path\": \"/spec/loadBalancerIP\", \"value\": \"$STORAGE_ADDRESS\"}]"
 kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
   -p='[{"op": "replace", "path": "/spec/type", "value": "LoadBalancer"}]'
 
@@ -82,8 +85,9 @@ function waitOpenELB() {
   sleep 60
   CNT=0
   while [ 0 -eq 0 ]; do
-    STATE=`kubectl get pod -n kube-system | grep openelb-manager | awk '$3 !~ /Running/ {print $3}'`
+    STATE=`kubectl get pod -n kube-system`
     if [ $? -eq 0 ]; then
+      STATE=`echo "$STATE" | grep openelb-manager | awk '$3 !~ /Running|STATUS/ {print $3}'`
       if [ -n "$STATE" ]; then
         CNT=`expr $CNT + 5`
         echo "OpenELB installing...$CNT s"
@@ -92,7 +96,7 @@ function waitOpenELB() {
         break;
       fi
     else
-      return -1;
+      return 255;
     fi
   done
 }
