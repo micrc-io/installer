@@ -6,9 +6,9 @@ echo "## Start -- Post install"
 echo "#######################################"
 
 
-NET_HTTP_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
-NET_SOCK_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
-IGNORE_PROXY=`cat ./owner.config | awk '{if($1 == "IGNORE_PROXY") print $2}'`
+NET_HTTP_PROXY=`cat /root/cluster/owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
+NET_SOCK_PROXY=`cat /root/cluster/owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
+IGNORE_PROXY=`cat /root/cluster/owner.config | awk '{if($1 == "IGNORE_PROXY") print $2}'`
 
 
 echo "==========================修复argocd out of sync问题============================"
@@ -35,9 +35,9 @@ metadata:
  name: proxy-config
  annotations:
    reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
-   reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "micrc-system"
+   reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "argocd,kubesphere-devops-system,kubesphere-devops-worker,micrc-system"
    reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
-   reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "micrc-system"
+   reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "argocd,kubesphere-devops-system,kubesphere-devops-worker,micrc-system"
 data:
  http_proxy: "$NET_HTTP_PROXY"
  HTTP_PROXY: "$NET_HTTP_PROXY"

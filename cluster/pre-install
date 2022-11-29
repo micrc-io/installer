@@ -6,8 +6,8 @@ echo "## Start -- 开始准备环境"
 echo "#######################################"
 
 # 设置环境变量
-REPO_PROXY=`cat ./owner.config | awk '{if($1 == "REPO_PROXY") print $2}'`
-TIMEZONE=`cat ./owner.config | awk '{if($1 == "TIMEZONE") print $2}'`
+REPO_PROXY=`cat /root/cluster/owner.config | awk '{if($1 == "REPO_PROXY") print $2}'`
+TIMEZONE=`cat /root/cluster/owner.config | awk '{if($1 == "TIMEZONE") print $2}'`
 
 
 echo "==========关闭防火墙和selinux=========="

@@ -26,7 +26,7 @@ function wait() {
 
 GITLAB_VERSION=6.5.5
 CERTMANAGER_VERSION=v1.10.1
-ORG_DOMAIN_NAME=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'`
+ORG_DOMAIN_NAME=`cat /root/cluster/owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'`
 
 
 echo "=============配置ectd监控============"
@@ -74,14 +74,12 @@ echo "================================Done.================================"
 
 
 echo "===========================创建sealed-secrets========================"
-kubectl apply -f ./config/devops/sealed-secrets.yaml
+kubectl apply -f ./config/sealed-secrets.yaml
 echo "=================================Done.================================"
 
 
 echo "========================安装kubernetes-reflector====================="
-helm repo add emberstack https://emberstack.github.io/helm-charts
-helm repo update
-helm upgrade --install reflector emberstack/reflector --namespace kube-system
+kubectl apply -f ./config/reflector.yaml
 echo "=================================Done.==============================="
 
 
@@ -125,6 +123,24 @@ kubectl patch -n kubesphere-system cc ks-installer --type=json -p='[{"op": "repl
 
 echo "等待kubesphere-devops安装..."
 wait
+
+# 修改argocd的镜像地址，以使用nexus proxy
+kubectl patch -n argocd deploy devops-argocd-dex-server --type=json \
+	-p='[{"op": "replace", "path": "/spec/template/spec/initContainers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
+kubectl patch -n argocd deploy devops-argocd-dex-server --type=json \
+	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "dexidp/dex:v2.30.2"}]'
+kubectl patch -n argocd deploy devops-argocd-server --type=json \
+	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
+kubectl patch -n argocd deploy devops-argocd-applicationset-controller --type=json \
+	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd-applicationset:v0.4.1"}]'
+kubectl patch -n argocd deploy devops-argocd-repo-server --type=json \
+	-p='[{"op": "replace", "path": "/spec/template/spec/initContainers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
+kubectl patch -n argocd deploy devops-argocd-repo-server --type=json \
+	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
+kubectl patch -n argocd deploy devops-argocd-notifications-controller --type=json \
+	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
+kubectl patch -n argocd statefulset devops-argocd-application-controller --type=json \
+	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
 echo "============================Done.============================"
 
 echo "=================配置kubesphere-devops-namespace================="
@@ -134,8 +150,6 @@ kubectl label namespace kubesphere-devops-worker kubesphere.io/workspace=system-
 kubectl label namespace kubesphere-devops-worker istio-injection=disabled
 kubectl label namespace argocd kubesphere.io/workspace=system-workspace
 kubectl label namespace argocd istio-injection=disabled
-kubectl label namespace gitlab-system kubesphere.io/workspace=system-workspace
-kubectl label namespace gitlab-system istio-injection=disabled
 echo "==============================Done.============================="
 
 
