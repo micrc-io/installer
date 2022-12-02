@@ -12,8 +12,6 @@ spec:
   - {name: worker3, address: 10.0.0.32, internalAddress: 10.0.0.32, user: root, password: wsx1qaz@WSX}
   - {name: worker4, address: 10.0.0.41, internalAddress: 10.0.0.41, user: root, password: wsx1qaz@WSX}
   - {name: worker5, address: 10.0.0.51, internalAddress: 10.0.0.51, user: root, password: wsx1qaz@WSX}
-  - {name: worker6, address: 10.0.0.61, internalAddress: 10.0.0.61, user: root, password: wsx1qaz@WSX}
-  - {name: worker7, address: 10.0.0.71, internalAddress: 10.0.0.71, user: root, password: wsx1qaz@WSX}
   roleGroups:
     etcd:
     - master1
@@ -29,8 +27,6 @@ spec:
     - worker3
     - worker4
     - worker5
-    - worker6
-    - worker7
   controlPlaneEndpoint:
     ##Internal loadbalancer for apiservers 
     internalLoadbalancer: haproxy

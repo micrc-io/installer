@@ -6,20 +6,40 @@ echo "## Start -- Post install"
 echo "#######################################"
 
 
-NET_HTTP_PROXY=`cat /root/cluster/owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
-NET_SOCK_PROXY=`cat /root/cluster/owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
-IGNORE_PROXY=`cat /root/cluster/owner.config | awk '{if($1 == "IGNORE_PROXY") print $2}'`
+# 组织域名称
+ORG_DOMAIN=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
+# ks console ip
+KS_CONSOLE_ADDRESS=`cat ./owner.config | awk '{if($1 == "KS_CONSOLE_ADDRESS") print $2}'`
+NET_HTTP_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
+NET_SOCK_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
+IGNORE_PROXY=`cat ./owner.config | awk '{if($1 == "IGNORE_PROXY") print $2}'`
+
+
+echo "================================修改ks-console eip=============================="
+# 配置ks console eip
+kubectl patch -n kubesphere-system svc/ks-console --type=json \
+  -p="[ \
+  {\"op\": \"add\", \"path\": \"/metadata/annotations/lb.kubesphere.io~1v1alpha1\", \"value\": \"openelb\"}, \
+  {\"op\": \"add\", \"path\": \"/metadata/annotations/protocol.openelb.kubesphere.io~1v1alpha1\", \"value\": \"layer2\"}, \
+  {\"op\": \"add\", \"path\": \"/metadata/annotations/eip.openelb.kubesphere.io~1v1alpha2\", \"value\": \"$ORG_DOMAIN-dev-eip\"}, \
+  {\"op\": \"add\", \"path\": \"/spec/loadBalancerIP\", \"value\": \"$KS_CONSOLE_ADDRESS\"}, \
+  {\"op\": \"replace\", \"path\": \"/spec/type\", \"value\": \"LoadBalancer\"}
+  ]"
+echo "=====================================Done.====================================="
 
 
 echo "==========================修复argocd out of sync问题============================"
 # cert-manager Certificate duration和renewBefore不识别导致out of sync
-kubectl patch -n argocd configmap argocd-cm --type=json -p='[{"op": "add", "path": "/data/resource.customizations.ignoreDifferences.cert-manager.io_Certificate", "value": "jsonPointers:\n- /spec/duration\n- /spec/renewBefore\n"}]'
+kubectl patch -n argocd configmap argocd-cm --type=json \
+  -p="[{\"op\": \"add\", \"path\": \"/data/resource.customizations.ignoreDifferences.cert-manager.io_Certificate\", \"value\": \"jsonPointers:\n- /spec/duration\n- /spec/renewBefore\n\"}]"
 echo "===============================Done.============================================"
 
 
 echo "===============================jenkins agent自定义镜像=========================="
 # 自定义ci agent及镜像
-kubectl get cm -n kubesphere-devops-system jenkins-casc-config -o json | jq --arg patch "`cat ./config/jenkins_user.yaml`" '.data["jenkins_user.yaml"] = $patch' | kubectl replace -f -
+kubectl get cm -n kubesphere-devops-system jenkins-casc-config -o json \
+  | jq --arg patch "`cat ./config/devops/jenkins_user.yaml`" '.data["jenkins_user.yaml"] = $patch' \
+  | kubectl replace -f -
 
 kubectl rollout restart -n kubesphere-devops-system deploy devops-jenkins
 echo "=======================================Done.===================================="
@@ -49,9 +69,13 @@ data:
  NO_PROXY: "$IGNORE_PROXY"
 EOF
 
+kubectl rollout restart -n kube-system deploy reflector
+
 # devops-argocd-repo-server, devops-jenkins需要代理访问github
-kubectl patch -n argocd deployment devops-argocd-repo-server -p '{"spec": {"template": {"spec": {"containers": [{"name": "repo-server", "envFrom": [{ "configMapRef": { "name": "proxy-config" } }]}]}}}}'
-kubectl patch -n kubesphere-devops-system deployment  devops-jenkins -p '{"spec": {"template": {"spec": {"containers": [{"name": "devops-jenkins", "envFrom": [{"configMapRef": {"name": "proxy-config"}}]}]}}}}'
+kubectl patch -n argocd deployment devops-argocd-repo-server \
+  -p '{"spec": {"template": {"spec": {"containers": [{"name": "repo-server", "envFrom": [{ "configMapRef": { "name": "proxy-config" } }]}]}}}}'
+kubectl patch -n kubesphere-devops-system deployment  devops-jenkins \
+  -p '{"spec": {"template": {"spec": {"containers": [{"name": "devops-jenkins", "envFrom": [{"configMapRef": {"name": "proxy-config"}}]}]}}}}'
 
 kubectl rollout restart -n argocd deploy devops-argocd-repo-server
 kubectl rollout restart -n kubesphere-devops-system deploy devops-jenkins

@@ -1,15 +1,21 @@
 #!/bin/bash
 
+
+echo "#######################################"
+echo "## Start -- 开始安装Kubernetes"
+echo "#######################################"
+
+
 # 设置环境变量
 VERSION=v1.22.10
 # 组织域名称
-ORG_DOMAIN=`cat /root/cluster/owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
+ORG_DOMAIN=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
 # EIP分配范围，不要与内网 dhcp重叠
-EIP_ADDRESS_RANGE=`cat /root/cluster/owner.config | awk '{if($1 == "EIP_ADDRESS_RANGE") print $2}'`
+EIP_ADDRESS_RANGE=`cat ./owner.config | awk '{if($1 == "EIP_ADDRESS_RANGE") print $2}'`
 # 路由地址
-ROUTER_ADDRESS=`cat /root/cluster/owner.config | awk '{if($1 == "ROUTER_ADDRESS") print $2}'`
+ROUTER_ADDRESS=`cat ./owner.config | awk '{if($1 == "ROUTER_ADDRESS") print $2}'`
 # 存储控制台地址
-STORAGE_ADDRESS=`cat /root/cluster/owner.config | awk '{if($1 == "STORAGE_ADDRESS") print $2}'`
+STORAGE_ADDRESS=`cat ./owner.config | awk '{if($1 == "STORAGE_ADDRESS") print $2}'`
 
 
 echo "=============================开始安装kubernetes================================"
@@ -60,11 +66,13 @@ helm upgrade --install longhorn ./config/longhorn --namespace longhorn-system \
   --values ./config/longhorn-values.yaml
 # 配置longhorn console eip
 kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
-  -p="[{\"op\": \"add\", \"path\": \"/metadata/annotations\", \"value\": {\"lb.kubesphere.io/v1alpha1\": \"openelb\", \"protocol.openelb.kubesphere.io/v1alpha1\": \"layer2\", \"eip.openelb.kubesphere.io/v1alpha2\": \"$ORG_DOMAIN-dev-eip\"}}]"
-kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
-  -p="[{\"op\": \"add\", \"path\": \"/spec/loadBalancerIP\", \"value\": \"$STORAGE_ADDRESS\"}]"
-kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
-  -p='[{"op": "replace", "path": "/spec/type", "value": "LoadBalancer"}]'
+  -p="[ \
+  {\"op\": \"add\", \"path\": \"/metadata/annotations/lb.kubesphere.io~1v1alpha1\", \"value\": \"openelb\"}, \
+  {\"op\": \"add\", \"path\": \"/metadata/annotations/protocol.openelb.kubesphere.io~1v1alpha1\", \"value\": \"layer2\"}, \
+  {\"op\": \"add\", \"path\": \"/metadata/annotations/eip.openelb.kubesphere.io~1v1alpha2\", \"value\": \"$ORG_DOMAIN-dev-eip\"}, \
+  {\"op\": \"add\", \"path\": \"/spec/loadBalancerIP\", \"value\": \"$STORAGE_ADDRESS\"}, \
+  {\"op\": \"replace\", \"path\": \"/spec/type\", \"value\": \"LoadBalancer\"}
+  ]"
 
 echo "等待Longhorn安装..."
 while [ 0 -eq 0 ]; do
@@ -121,7 +129,7 @@ while [ 0 -eq 0 ]; do
 done
 echo "OpenELB insalled. "
 
-cat <<EOF | kubectl create -f -
+cat <<EOF | kubectl apply -f -
 ---
 apiVersion: network.kubesphere.io/v1alpha2
 kind: Eip
@@ -135,4 +143,10 @@ spec:
 EOF
 echo "==============================Done.=================================="
 
+
+echo "######################################"
+echo "## Successful -- 安装完成."
+echo "## 使用 kubectl get nodes / kubectl get pod --all-namespaces 查看详情"
+echo "## 访问http://$STORAGE_ADDRESS 查看存储控制台"
+echo "######################################"
 

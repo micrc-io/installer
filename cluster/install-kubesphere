@@ -24,9 +24,11 @@ function wait() {
 }
 
 
-GITLAB_VERSION=6.5.5
 CERTMANAGER_VERSION=v1.10.1
-ORG_DOMAIN_NAME=`cat /root/cluster/owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'`
+# 组织域名称
+ORG_DOMAIN=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
+# 组织域名
+ORG_DOMAIN_NAME=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'`
 
 
 echo "=============配置ectd监控============"
@@ -67,11 +69,6 @@ helm upgrade --install alidns-webhook ./config/cert/alidns-webhook --namespace c
 	--set groupName=acme.$ORG_DOMAIN_NAME
 echo "=================================Done.==============================="
 
-echo "======================配置cert-manager-namespace====================="
-kubectl label namespace cert-manager kubesphere.io/workspace=system-workspace
-kubectl label namespace cert-manager istio-injection=disabled
-echo "================================Done.================================"
-
 
 echo "===========================创建sealed-secrets========================"
 kubectl apply -f ./config/sealed-secrets.yaml
@@ -90,31 +87,31 @@ kubectl apply -f ./config/kubesphere-config.yaml
 
 echo "等待kubesphere安装..."
 wait
-
-# 配置ks console eip
 echo "====================Done.======================="
 
 
 echo "=================配置kubesphere-basic-namespace================="
 # 为namespace添加label: istio-injection=disabled不允许sidecar注入, kubesphere.io/workspace=system-workspace标记为kubesphere系统空间
-kubectl label namespace kube-system istio-injection=disabled
-kubectl label namespace kube-system kubesphere.io/workspace=system-workspace
-kubectl label namespace kube-public istio-injection=disabled
-kubectl label namespace kube-public kubesphere.io/workspace=system-workspace
-kubectl label namespace default istio-injection=disabled
-kubectl label namespace default kubesphere.io/workspace=system-workspace
-kubectl label namespace kube-node-lease istio-injection=disabled
-kubectl label namespace kube-node-lease kubesphere.io/workspace=system-workspace
-kubectl label namespace longhorn-system istio-injection=disabled
-kubectl label namespace longhorn-system kubesphere.io/workspace=system-workspace
+kubectl label namespace kube-system istio-injection=disabled --overwrite
+kubectl label namespace kube-system kubesphere.io/workspace=system-workspace --overwrite
+kubectl label namespace kube-public istio-injection=disabled --overwrite
+kubectl label namespace kube-public kubesphere.io/workspace=system-workspace --overwrite
+kubectl label namespace default istio-injection=disabled --overwrite
+kubectl label namespace default kubesphere.io/workspace=system-workspace --overwrite	
+kubectl label namespace kube-node-lease istio-injection=disabled --overwrite
+kubectl label namespace kube-node-lease kubesphere.io/workspace=system-workspace --overwrite
+kubectl label namespace longhorn-system istio-injection=disabled --overwrite
+kubectl label namespace longhorn-system kubesphere.io/workspace=system-workspace --overwrite
+kubectl label namespace cert-manager istio-injection=disabled --overwrite
+kubectl label namespace cert-manager kubesphere.io/workspace=system-workspace --overwrite
 
 # 为namespace添加label: istio-injection=disabled不允许sidecar注入
-kubectl label namespace kubekey-system kubesphere.io/workspace=system-workspace
-kubectl label namespace kubekey-system istio-injection=disabled
-kubectl label namespace kubesphere-system istio-injection=disabled
-kubectl label namespace kubesphere-logging-system istio-injection=disabled
-kubectl label namespace kubesphere-monitoring-system istio-injection=disabled
-kubectl label namespace kubesphere-monitoring-federated istio-injection=disabled
+kubectl label namespace kubekey-system kubesphere.io/workspace=system-workspace --overwrite
+kubectl label namespace kubekey-system istio-injection=disabled --overwrite
+kubectl label namespace kubesphere-system istio-injection=disabled --overwrite
+kubectl label namespace kubesphere-logging-system istio-injection=disabled --overwrite
+kubectl label namespace kubesphere-monitoring-system istio-injection=disabled --overwrite
+kubectl label namespace kubesphere-monitoring-federated istio-injection=disabled --overwrite
 echo "==============================Done.============================="
 
 
@@ -126,30 +123,37 @@ wait
 
 # 修改argocd的镜像地址，以使用nexus proxy
 kubectl patch -n argocd deploy devops-argocd-dex-server --type=json \
-	-p='[{"op": "replace", "path": "/spec/template/spec/initContainers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
-kubectl patch -n argocd deploy devops-argocd-dex-server --type=json \
-	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "dexidp/dex:v2.30.2"}]'
+	-p="[ \
+	{\"op\": \"replace\", \"path\": \"/spec/template/spec/initContainers/0/image\", \"value\": \"argoproj/argocd:v2.3.3\"}, \
+	{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/image\", \"value\": \"dexidp/dex:v2.30.2\"} \
+	]"
+
 kubectl patch -n argocd deploy devops-argocd-server --type=json \
-	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
+	-p="[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/image\", \"value\": \"argoproj/argocd:v2.3.3\"}]"
+
 kubectl patch -n argocd deploy devops-argocd-applicationset-controller --type=json \
-	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd-applicationset:v0.4.1"}]'
+	-p="[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/image\", \"value\": \"argoproj/argocd-applicationset:v0.4.1\"}]"
+
 kubectl patch -n argocd deploy devops-argocd-repo-server --type=json \
-	-p='[{"op": "replace", "path": "/spec/template/spec/initContainers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
-kubectl patch -n argocd deploy devops-argocd-repo-server --type=json \
-	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
+	-p="[ \
+	{\"op\": \"replace\", \"path\": \"/spec/template/spec/initContainers/0/image\", \"value\": \"argoproj/argocd:v2.3.3\"}, \
+	{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/image\", \"value\": \"argoproj/argocd:v2.3.3\"} \
+	]"
+
 kubectl patch -n argocd deploy devops-argocd-notifications-controller --type=json \
-	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
+	-p="[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/image\", \"value\": \"argoproj/argocd:v2.3.3\"}]"
+
 kubectl patch -n argocd statefulset devops-argocd-application-controller --type=json \
-	-p='[{"op": "replace", "path": "/spec/template/spec/containers/0/image", "value": "argoproj/argocd:v2.3.3"}]'
+	-p="[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/image\", \"value\": \"argoproj/argocd:v2.3.3\"}]"
 echo "============================Done.============================"
 
 echo "=================配置kubesphere-devops-namespace================="
-kubectl label namespace kubesphere-devops-system kubesphere.io/workspace=system-workspace
-kubectl label namespace kubesphere-devops-system istio-injection=disabled
-kubectl label namespace kubesphere-devops-worker kubesphere.io/workspace=system-workspace
-kubectl label namespace kubesphere-devops-worker istio-injection=disabled
-kubectl label namespace argocd kubesphere.io/workspace=system-workspace
-kubectl label namespace argocd istio-injection=disabled
+kubectl label namespace kubesphere-devops-system kubesphere.io/workspace=system-workspace --overwrite
+kubectl label namespace kubesphere-devops-system istio-injection=disabled --overwrite
+kubectl label namespace kubesphere-devops-worker kubesphere.io/workspace=system-workspace --overwrite
+kubectl label namespace kubesphere-devops-worker istio-injection=disabled --overwrite
+kubectl label namespace argocd kubesphere.io/workspace=system-workspace --overwrite
+kubectl label namespace argocd istio-injection=disabled --overwrite
 echo "==============================Done.============================="
 
 
@@ -172,8 +176,8 @@ echo "=============================Done.================================"
 echo "========================安装micrc设计系统和模式管理器==================="
 kubectl create ns micrc-system
 
-kubectl label namespace micrc-system kubesphere.io/workspace=system-workspace
-kubectl label namespace micrc-system istio-injection=disabled
+kubectl label namespace micrc-system kubesphere.io/workspace=system-workspace --overwrite
+kubectl label namespace micrc-system istio-injection=disabled --overwrite
 echo "=================================Done.==============================="
 
 
