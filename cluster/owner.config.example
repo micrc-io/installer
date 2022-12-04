@@ -3,8 +3,9 @@ TIMEZONE			Asia/Shanghai
 ORG_DOMAIN 			组织域
 ORG_DOMAIN_NAME		组织域.com
 ROUTER_ADDRESS		10.0.0.1
-EIP_ADDRESS_RANGE	10.0.5.1-10.0.5.10
 STORAGE_ADDRESS		10.0.5.10 longhorn cas存储控制器ui控制台ip
+STORAGE_ADMIN		admin 存储控制器ui控制台用户名
+STORAGE_PASS		P@88w0rd 存储控制器ui控制台密码
 KS_CONSOLE_ADDRESS	10.0.5.1  kubesphere ui控制台ip
 DNS01_KEY			acme dns01验证需要的域名供应商accesskey
 DNS01_SECRET		域名供应商keysecret

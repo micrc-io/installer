@@ -8,14 +8,6 @@ echo "#######################################"
 
 # 设置环境变量
 VERSION=v1.22.10
-# 组织域名称
-ORG_DOMAIN=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
-# EIP分配范围，不要与内网 dhcp重叠
-EIP_ADDRESS_RANGE=`cat ./owner.config | awk '{if($1 == "EIP_ADDRESS_RANGE") print $2}'`
-# 路由地址
-ROUTER_ADDRESS=`cat ./owner.config | awk '{if($1 == "ROUTER_ADDRESS") print $2}'`
-# 存储控制台地址
-STORAGE_ADDRESS=`cat ./owner.config | awk '{if($1 == "STORAGE_ADDRESS") print $2}'`
 
 
 echo "=============================开始安装kubernetes================================"
@@ -36,56 +28,6 @@ kubectl get pod -n kube-system | grep kube-proxy | awk '{system("kubectl delete 
 sleep 20
 kubectl get pod -n kube-system | grep kube-proxy | awk '{system("kubectl logs "$1" -n kube-system")}' | egrep "ipvs"
 echo "=========================Done.============================="
-
-
-echo "===========================安装longhron cas存储======================"
-function waitLonghorn() {
-  sleep 60
-  CNT=0
-  while [ 0 -eq 0 ]; do
-    STATE=`kubectl get pod -n longhorn-system`
-    if [ $? -eq 0 ]; then
-      STATE=`echo "$STATE" | egrep 'longhorn|csi|engine|manager' | awk '$3 !~ /Running|STATUS/ {print $3}'`
-      if [ -n "$STATE" ]; then
-        CNT=`expr $CNT + 5`
-        echo "Longhorn installing...$CNT s"
-        sleep 5
-      else
-        break;
-      fi
-    else
-      return 255;
-    fi
-  done
-}
-# note: 云环境使用供应商提供的存储方案，存储类不适合自行处理;
-# 开发集成集群使用cas存储方案，外加nfs二级备份存储
-# 安装longhorn
-kubectl create ns longhorn-system
-helm upgrade --install longhorn ./config/longhorn --namespace longhorn-system \
-  --values ./config/longhorn-values.yaml
-# 配置longhorn console eip
-kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
-  -p="[ \
-  {\"op\": \"add\", \"path\": \"/metadata/annotations/lb.kubesphere.io~1v1alpha1\", \"value\": \"openelb\"}, \
-  {\"op\": \"add\", \"path\": \"/metadata/annotations/protocol.openelb.kubesphere.io~1v1alpha1\", \"value\": \"layer2\"}, \
-  {\"op\": \"add\", \"path\": \"/metadata/annotations/eip.openelb.kubesphere.io~1v1alpha2\", \"value\": \"$ORG_DOMAIN-dev-eip\"}, \
-  {\"op\": \"add\", \"path\": \"/spec/loadBalancerIP\", \"value\": \"$STORAGE_ADDRESS\"}, \
-  {\"op\": \"replace\", \"path\": \"/spec/type\", \"value\": \"LoadBalancer\"}
-  ]"
-
-echo "等待Longhorn安装..."
-while [ 0 -eq 0 ]; do
-  waitLonghorn
-  if [ $? -eq 0 ]; then
-    break;
-  else
-    echo "Error. retry after 2s"
-    sleep 2
-  fi
-done
-echo "Longhorn insalled. "
-echo "===============================Done.================================"
 
 
 echo "=====================创建openelb负载均衡器ip pool====================="
@@ -128,20 +70,57 @@ while [ 0 -eq 0 ]; do
   fi
 done
 echo "OpenELB insalled. "
-
-cat <<EOF | kubectl apply -f -
----
-apiVersion: network.kubesphere.io/v1alpha2
-kind: Eip
-metadata:
-  name: $ORG_DOMAIN-dev-eip
-spec:
-  address: $EIP_ADDRESS_RANGE
-  interface: can_reach:$ROUTER_ADDRESS
-  protocol: layer2
-  disable: false
-EOF
 echo "==============================Done.=================================="
+
+
+echo "===========================安装longhron cas存储======================"
+function waitLonghorn() {
+  sleep 60
+  CNT=0
+  while [ 0 -eq 0 ]; do
+    STATE=`kubectl get pod -n longhorn-system`
+    if [ $? -eq 0 ]; then
+      STATE=`echo "$STATE" | egrep 'longhorn|csi|engine|manager' | awk '$3 !~ /Running|STATUS/ {print $3}'`
+      if [ -n "$STATE" ]; then
+        CNT=`expr $CNT + 5`
+        echo "Longhorn installing...$CNT s"
+        sleep 5
+      else
+        break;
+      fi
+    else
+      return 255;
+    fi
+  done
+}
+# note: 云环境使用供应商提供的存储方案，存储类不适合自行处理;
+# 开发集成集群使用cas存储方案，外加nfs二级备份存储
+# 安装longhorn
+kubectl create ns longhorn-system
+helm upgrade --install longhorn ./config/longhorn --namespace longhorn-system \
+  --values ./config/longhorn-values.yaml
+# 配置longhorn console eip
+# kubectl patch -n longhorn-system svc/longhorn-frontend --type=json \
+#   -p="[ \
+#   {\"op\": \"add\", \"path\": \"/metadata/annotations/lb.kubesphere.io~1v1alpha1\", \"value\": \"openelb\"}, \
+#   {\"op\": \"add\", \"path\": \"/metadata/annotations/protocol.openelb.kubesphere.io~1v1alpha1\", \"value\": \"layer2\"}, \
+#   {\"op\": \"add\", \"path\": \"/metadata/annotations/eip.openelb.kubesphere.io~1v1alpha2\", \"value\": \"$ORG_DOMAIN-dev-eip\"}, \
+#   {\"op\": \"add\", \"path\": \"/spec/loadBalancerIP\", \"value\": \"$STORAGE_ADDRESS\"}, \
+#   {\"op\": \"replace\", \"path\": \"/spec/type\", \"value\": \"LoadBalancer\"}
+#   ]"
+
+echo "等待Longhorn安装..."
+while [ 0 -eq 0 ]; do
+  waitLonghorn
+  if [ $? -eq 0 ]; then
+    break;
+  else
+    echo "Error. retry after 2s"
+    sleep 2
+  fi
+done
+echo "Longhorn insalled. "
+echo "===============================Done.================================"
 
 
 echo "######################################"

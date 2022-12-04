@@ -30,12 +30,12 @@ spec:
   controlPlaneEndpoint:
     ##Internal loadbalancer for apiservers 
     internalLoadbalancer: haproxy
-    domain: lb.integration.ouxxa.com
+    domain: lb.integration.it.ouxxa.com
     address: ""
     port: 6443
   kubernetes:
     version: v1.22.10
-    clusterName: integration.ouxxa.com
+    clusterName: integration.it.ouxxa.com
     imageRepo: kubesphere
     masqueradeAll: false
     maxPods: 128
