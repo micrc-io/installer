@@ -6,18 +6,18 @@ echo "## Start -- Post install"
 echo "#######################################"
 
 
-# 组织域名称
-ORG_DOMAIN=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
-# ks console ip
-KS_CONSOLE_ADDRESS=`cat ./owner.config | awk '{if($1 == "KS_CONSOLE_ADDRESS") print $2}'`
 # http代理
 NET_HTTP_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
 # sock代理
 NET_SOCK_PROXY=`cat ./owner.config | awk '{if($1 == "NET_HTTP_PROXY") print $2}'`
 # 代理ignore
 IGNORE_PROXY=`cat ./owner.config | awk '{if($1 == "IGNORE_PROXY") print $2}'`
+# 组织域名称
+ORG_DOMAIN=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
 # 路由地址
 ROUTER_ADDRESS=`cat ./owner.config | awk '{if($1 == "ROUTER_ADDRESS") print $2}'`
+# ks console ip
+KS_CONSOLE_ADDRESS=`cat ./owner.config | awk '{if($1 == "KS_CONSOLE_ADDRESS") print $2}'`
 # 存储控制台地址
 STORAGE_ADDRESS=`cat ./owner.config | awk '{if($1 == "STORAGE_ADDRESS") print $2}'`
 # 存储控制台地址
@@ -43,6 +43,7 @@ spec:
   protocol: layer2
   disable: false
 EOF
+
 	# 创建ks gateway
 	cat <<EOF | kubectl apply -f -
 ---
@@ -66,7 +67,7 @@ spec:
     replicas: 1
   service:
     annotations:
-      eip.openelb.kubesphere.io/v1alpha2: $ORG_DOMAIN-dev-storage-eip
+      eip.openelb.kubesphere.io/v1alpha2: $ORG_DOMAIN-integration-storage-eip
       lb.kubesphere.io/v1alpha1: openelb
       protocol.openelb.kubesphere.io/v1alpha1: layer2
     type: LoadBalancer
@@ -118,7 +119,11 @@ echo "================================修改ks-console eip======================
 #   {\"op\": \"replace\", \"path\": \"/spec/type\", \"value\": \"LoadBalancer\"}
 #   ]"
 
+# bug fix ks-console不能设置为clusterip，安装后patch
+kubectl patch -n kubesphere-system svc/ks-console --type=json \
+  -p="[{\"op\": \"replace\", \"path\": \"/spec/type\", \"value\": \"ClusterIP\"}]"
 # 创建eip
+# todo 云环境直接使用slb地址，不创建eip
 cat <<EOF | kubectl apply -f -
 ---
 apiVersion: network.kubesphere.io/v1alpha2
