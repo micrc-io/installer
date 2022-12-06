@@ -92,6 +92,10 @@ metadata:
     nginx.ingress.kubernetes.io/auth-realm: 'Authentication Required '
     nginx.ingress.kubernetes.io/proxy-body-size: 10000m
 spec:
+  tls:
+    - hosts:
+        - storage.integration.it.ouxxa.com
+      secretName: ouxxa-integration-tls
   rules:
     - host: storage.integration.it.ouxxa.com
       http:
@@ -177,6 +181,10 @@ metadata:
   annotations:
     kubesphere.io/creator: admin
 spec:
+  tls:
+    - hosts:
+        - integration.it.ouxxa.com
+      secretName: ouxxa-integration-tls
   rules:
     - host: integration.it.ouxxa.com
       http:

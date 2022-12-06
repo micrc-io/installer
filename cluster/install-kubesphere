@@ -29,6 +29,8 @@ CERTMANAGER_VERSION=v1.10.1
 ORG_DOMAIN=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN") print $2}'`
 # 组织域名
 ORG_DOMAIN_NAME=`cat ./owner.config | awk '{if($1 == "ORG_DOMAIN_NAME") print $2}'`
+DNS01_KEY=`cat ./owner.config | awk '{if($1 == "DNS01_KEY") print $2}'`
+DNS01_SECRET=`cat ./owner.config | awk '{if($1 == "DNS01_SECRET") print $2}'`
 
 
 echo "=============配置ectd监控============"
@@ -67,6 +69,68 @@ helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manag
 helm upgrade --install alidns-webhook ./config/cert/alidns-webhook --namespace cert-manager \
   --set image.repository=devmachine-fr/cert-manager-alidns-webhook/cert-manager-alidns-webhook \
 	--set groupName=acme.$ORG_DOMAIN_NAME
+
+# 创建alidns secret
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alidns-secret
+  namespace: cert-manager
+type: Opaque
+stringData:
+  access-key: $DNS01_KEY
+  secret-key: $DNS01_SECRET
+EOF
+# 创建集群证书
+cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  namespace: cert-manager
+  name: letsencrypt
+spec:
+  acme:
+    email: developer@ouxxa.com
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      name: letsencrypt-account-key
+    solvers:
+    - dns01:
+        webhook:
+          groupName: acme.$ORG_DOMAIN_NAME
+          solverName: alidns-solver
+          config:
+            accessTokenSecretRef:
+              name: alidns-secret
+              key: access-key
+            secretKeySecretRef:
+              name: alidns-secret
+              key: secret-key
+EOF
+cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  namespace: cert-manager
+  name: ouxxa-integration-cert
+spec:
+  secretName: ouxxa-integration-tls
+  secretTemplate:
+    annotations:
+      reflector.v1.k8s.emberstack.com/reflection-allowed: "true"
+      reflector.v1.k8s.emberstack.com/reflection-allowed-namespaces: "kubesphere-system,longhorn-system"
+      reflector.v1.k8s.emberstack.com/reflection-auto-enabled: "true"
+      reflector.v1.k8s.emberstack.com/reflection-auto-namespaces: "kubesphere-system,longhorn-system"
+  dnsNames:
+  - integration.it.ouxxa.com
+  - "*.integration.it.ouxxa.com"
+  issuerRef:
+    name: letsencrypt
+    kind: Issuer
+  duration: 2160h
+  renewBefore: 360h
+EOF
 echo "=================================Done.==============================="
 
 
