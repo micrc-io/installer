@@ -4,9 +4,7 @@ jenkins:
   scmCheckoutRetryCount: 2
   disableRememberMe: true
 
-  proxy:
-    name: "10.0.0.102"
-    port: 7890
+  proxy: {}
 
   clouds:
     - kubernetes:
@@ -17,75 +15,11 @@ jenkins:
         credentialsId: "k8s-service-account"
         jenkinsUrl: "http://devops-jenkins.kubesphere-devops-system:80"
         jenkinsTunnel: "devops-jenkins-agent.kubesphere-devops-system:50000"
-        containerCapStr: ""
+        containerCapStr: "2"
         connectTimeout: "60"
         readTimeout: "60"
         maxRequestsPerHostStr: "32"
         templates:
-          - name: "micrc"
-            namespace: "kubesphere-devops-worker"
-            label: "micrc"
-            nodeUsageMode: "NORMAL"
-            idleMinutes: 0
-            containers:
-            - name: "micrc"
-              image: "micrc/builder-agent:main"
-              command: "cat"
-              args: ""
-              ttyEnabled: true
-              privileged: false
-              resourceRequestCpu: "100m"
-              resourceLimitCpu: "4000m"
-              resourceRequestMemory: "100Mi"
-              resourceLimitMemory: "8192Mi"
-            - name: "jnlp"
-              image: "jenkins/inbound-agent:4.10-2"
-              args: "^${computer.jnlpmac} ^${computer.name}"
-              resourceRequestCpu: "50m"
-              resourceLimitCpu: "500m"
-              resourceRequestMemory: "400Mi"
-              resourceLimitMemory: "1536Mi"
-            workspaceVolume:
-              emptyDirWorkspaceVolume:
-                memory: false
-            volumes:
-            - hostPathVolume:
-                hostPath: "/var/run/docker.sock"
-                mountPath: "/var/run/docker.sock"
-            - hostPathVolume:
-                hostPath: "/var/data/jenkins_sonar_cache"
-                mountPath: "/root/.sonar/cache"
-            yaml: |
-              spec:
-                affinity:
-                  nodeAffinity:
-                    preferredDuringSchedulingIgnoredDuringExecution:
-                    - weight: 1
-                      preference:
-                        matchExpressions:
-                        - key: node-role.kubernetes.io/worker
-                          operator: In
-                          values:
-                          - ci
-                tolerations:
-                - key: "node.kubernetes.io/ci"
-                  operator: "Exists"
-                  effect: "NoSchedule"
-                - key: "node.kubernetes.io/ci"
-                  operator: "Exists"
-                  effect: "PreferNoSchedule"
-                containers:
-                - name: "micrc"
-                  envFrom:
-                  - configMapRef:
-                      name: proxy-config
-                  resources:
-                    requests:
-                      ephemeral-storage: "1Gi"
-                    limits:
-                      ephemeral-storage: "10Gi"
-                securityContext:
-                  fsGroup: 1000
           - name: "base"
             namespace: "kubesphere-devops-worker"
             label: "base"
@@ -140,9 +74,6 @@ jenkins:
                   effect: "PreferNoSchedule"
                 containers:
                 - name: "base"
-                  envFrom:
-                  - configMapRef:
-                      name: proxy-config
                   resources:
                     requests:
                       ephemeral-storage: "1Gi"
@@ -475,4 +406,3 @@ unclassified:
     servers:
     - name: "https://gitlab.com"
       serverUrl: "https://gitlab.com"
-

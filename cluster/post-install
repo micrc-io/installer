@@ -208,7 +208,11 @@ echo "===============================Done.======================================
 
 
 echo "===============================jenkins agent自定义镜像=========================="
-# 自定义ci agent及镜像
+# 设置jenkins全局代理
+kubectl get cm -n kubesphere-devops-system jenkins-casc-config -o json \
+  | jq --arg patch "`cat ./config/devops/jenkins.yaml`" '.data["jenkins.yaml"] = $patch' \
+  | kubectl replace -f -
+# 设置jenkins自定义ci agent及镜像
 kubectl get cm -n kubesphere-devops-system jenkins-casc-config -o json \
   | jq --arg patch "`cat ./config/devops/jenkins_user.yaml`" '.data["jenkins_user.yaml"] = $patch' \
   | kubectl replace -f -
@@ -237,8 +241,8 @@ data:
  HTTPS_PROXY: "$NET_HTTP_PROXY"
  all_proxy: "$NET_SOCK_PROXY"
  ALL_PROXY: "$NET_SOCK_PROXY"
- no_proxy: "$IGNORE_PROXY"
- NO_PROXY: "$IGNORE_PROXY"
+ no_proxy: "${IGNORE_PROXY}"
+ NO_PROXY: "${IGNORE_PROXY}"
 EOF
 
 kubectl rollout restart -n kube-system deploy reflector
