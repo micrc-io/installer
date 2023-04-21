@@ -8,3 +8,4 @@ cluster/kubekey/kube/v1.22.10/amd64/kubectl filter=lfs diff=lfs merge=lfs -text
 cluster/kubekey/crictl/v1.24.0/amd64/crictl-v1.24.0-linux-amd64.tar.gz filter=lfs diff=lfs merge=lfs -text
 cluster/kubekey/docker/20.10.8/amd64/docker-20.10.8.tgz filter=lfs diff=lfs merge=lfs -text
 cluster/kubekey/etcd/v3.4.13/amd64/etcd-v3.4.13-linux-amd64.tar.gz filter=lfs diff=lfs merge=lfs -text
+cluster/istioctl filter=lfs diff=lfs merge=lfs -text

@@ -234,6 +234,9 @@ kubectl patch -n kubesphere-system cc ks-installer --type=json -p='[{"op": "repl
 
 echo "等待kubesphere-istio安装..."
 wait
+
+# 安装git-operator
+./istioctl operator init --watchedNamespaces=
 echo "=============================Done.================================"
 
 
